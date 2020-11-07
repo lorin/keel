@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.rest
 
+import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.BaseServerGroup
 import com.netflix.spinnaker.keel.clouddriver.model.toActive
@@ -21,7 +22,8 @@ import org.springframework.web.bind.annotation.RestController
 @ConditionalOnProperty("tests.passthru", matchIfMissing = false)
 @RequestMapping(path = ["/test"])
 class PassThruController(
-  private val cloudDriverService: CloudDriverService
+  private val cloudDriverService: CloudDriverService,
+  private val constraints: List<ConstraintEvaluator<*>>
 ) {
 
   @GetMapping(
@@ -40,6 +42,12 @@ class PassThruController(
         else -> throw UserException("Unknown cloud provider: $cloudProvider")
       }
     }
+
+  @GetMapping(
+    path = ["/constraints"]
+  )
+  fun getConstraints() : List<String> =
+    constraints.map { it.javaClass.name }
 
   suspend fun getActiveAwsServerGroups(app: String, account: String, cluster: String) =
     cloudDriverService
