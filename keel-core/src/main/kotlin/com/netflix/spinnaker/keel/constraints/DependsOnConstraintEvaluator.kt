@@ -9,9 +9,11 @@ import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator.Companion.getC
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 @Component
+@Order(3)
 class DependsOnConstraintEvaluator(
   private val artifactRepository: ArtifactRepository,
   override val eventPublisher: EventPublisher

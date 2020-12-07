@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
+import org.springframework.core.annotation.Order
 import java.text.ParsePosition
 import java.time.Clock
 import java.time.DayOfWeek
@@ -44,6 +45,7 @@ import org.springframework.stereotype.Component
  * ```
  */
 @Component
+@Order(2)
 class AllowedTimesConstraintEvaluator(
   private val clock: Clock,
   private val dynamicConfigService: DynamicConfigService,

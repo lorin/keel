@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.parseAppVersion
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component
  * find the AMI.
  */
 @Component
+@Order(1)
 class ImageExistsConstraintEvaluator(
   private val imageService: ImageService,
   private val dynamicConfigService: DynamicConfigService,

@@ -12,10 +12,13 @@ import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintAttributesT
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
+import org.springframework.core.Ordered.LOWEST_PRECEDENCE
+import org.springframework.core.annotation.Order
 import java.time.Clock
 import org.springframework.stereotype.Component
 
 @Component
+@Order(LOWEST_PRECEDENCE)
 class ManualJudgementConstraintEvaluator(
   repository: ConstraintRepository,
   private val clock: Clock,

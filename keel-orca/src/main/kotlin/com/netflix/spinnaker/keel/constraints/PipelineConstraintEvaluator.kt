@@ -19,6 +19,7 @@ import java.time.Clock
 import java.util.HashMap
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory.getLogger
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
@@ -39,6 +40,7 @@ import org.springframework.stereotype.Component
  *
  */
 @Component
+@Order(4)
 class PipelineConstraintEvaluator(
   private val orcaService: OrcaService,
   repository: ConstraintRepository,

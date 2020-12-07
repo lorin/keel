@@ -21,6 +21,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
@@ -61,6 +62,7 @@ import org.springframework.stereotype.Component
  *    failureCancelsRunningRegions: false
  */
 @Component
+@Order(5)
 class CanaryConstraintEvaluator(
   private val handlers: List<CanaryConstraintDeployHandler>,
   private val orcaService: OrcaService,
