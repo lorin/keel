@@ -249,7 +249,20 @@ class ApplicationService(
   }
 
   fun getVerificationSummariesFor(application: String): List<VerificationSummary> {
-    return emptyList()
+    val environmentSummaries = getEnvironmentSummariesFor(application)
+    return getVerificationSummariesFor(application, environmentSummaries)
+  }
+
+  private fun getVerificationSummariesFor(
+    application: String,
+    environmentSummaries: List<EnvironmentSummary>
+  ): List<VerificationSummary> {
+    val deliveryConfig = try {
+      repository.getDeliveryConfigForApplication(application)
+    } catch (e: NoSuchDeliveryConfigException) {
+      return emptyList()
+    }
+    
   }
 
 
