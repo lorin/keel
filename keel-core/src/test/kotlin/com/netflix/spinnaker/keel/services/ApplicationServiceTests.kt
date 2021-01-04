@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.services
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.ScmInfo
+import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.SNAPSHOT
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
@@ -97,7 +98,13 @@ class ApplicationServiceTests : JUnit5Minutests {
           artifactReferenceResource(artifactReference = "release"),
           // resource with old-style image provider
           versionedArtifactResource()
-        )
+        ),
+        verifyWith = setOf(object : Verification {
+          override val type: String
+            get() = "test-verification"
+          override val id: String
+            get() = "for-unit-testing-only"
+        })
       )
     }
 
@@ -915,6 +922,9 @@ class ApplicationServiceTests : JUnit5Minutests {
           repository.deletePin(singleArtifactDeliveryConfig, "production")
         }
       }
+    }
+
+    context("verification summaries by application") {
     }
   }
 
