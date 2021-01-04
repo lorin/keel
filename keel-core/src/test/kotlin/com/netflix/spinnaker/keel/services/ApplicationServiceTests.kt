@@ -99,12 +99,16 @@ class ApplicationServiceTests : JUnit5Minutests {
           // resource with old-style image provider
           versionedArtifactResource()
         ),
-        verifyWith = setOf(object : Verification {
-          override val type: String
-            get() = "test-verification"
-          override val id: String
-            get() = "for-unit-testing-only"
-        })
+        verifyWith = if (name == "staging") {
+          setOf(object : Verification {
+            override val type: String
+              get() = "custom-verification"
+            override val id: String
+              get() = "custom-verification-id"
+          })
+        } else {
+          emptySet()
+        }
       )
     }
 
@@ -925,6 +929,11 @@ class ApplicationServiceTests : JUnit5Minutests {
     }
 
     context("verification summaries by application") {
+      test("includes all verifications within the delivery config") {
+        val summaries = applicationService.getVerificationSummariesFor(application1)
+        val verificationCount = singleArtifactDeliveryConfig.environments.fold(0, {acc, env-> acc+env.verifyWith.size})
+        expectThat(summaries.size).isEqualTo(verificationCount)
+      }
     }
   }
 
