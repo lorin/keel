@@ -22,12 +22,20 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
 import org.jooq.DSLContext
 import org.jooq.Field
+import org.jooq.Name
 import org.jooq.Record1
+import org.jooq.Record4
 import org.jooq.Select
+import org.jooq.SelectOrderByStep
 import org.jooq.impl.DSL.function
+import org.jooq.Table
+import org.jooq.impl.DSL.field
+import org.jooq.impl.DSL.inline
 import org.jooq.impl.DSL.isnull
+import org.jooq.impl.DSL.name
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
+import org.jooq.impl.DSL.values
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant.EPOCH
@@ -161,6 +169,84 @@ class SqlVerificationRepository(
           }
       }
     }
+
+  /**
+   * Equivalent of:
+   *
+   *     contexts.map { getStates(it) }
+   *
+   * Except that it does it in a single SQL query
+   *
+   */
+  override fun getStatesBatch(contexts: List<VerificationContext>) : List<Map<String, VerificationState>> {
+    // A constant table based on the contexts argument. This lets us restrict our query to just
+    // the matching artifact versions given as an argument to the function
+    val givenVersions = object {
+      val alias = "given_versions"
+      private val IND_ = "ind"
+      private val ENVIRONMENT_NAME_ = "environment_name"
+      private val ARTIFACT_REFERENCE_ = "artifact_reference"
+      private val ARTIFACT_VERSION_ = "artifact_version"
+
+      fun <T> f(s : String, t: Class<T>) : Field<T> = field(name(alias, s), t)
+
+      val IND  = f(IND_, Long::class.java)
+      val ENVIRONMENT_NAME = f(ENVIRONMENT_NAME_, String::class.java)
+      val ARTIFACT_REFERENCE = f(ARTIFACT_REFERENCE_, String::class.java)
+      val ARTIFACT_VERSION = f(ARTIFACT_VERSION_, String::class.java)
+
+      val table : Table<Record4<Int, String, String, String>>
+        /**
+         *
+         * If [values] was supported, we could do this instead:
+         *
+         *     val givenVersions : Array<Row4<Int, String, String, String>> = contexts.mapIndexed { idx, v -> row(idx, v.environmentName, v.artifactReference, v.version) }.toTypedArray()
+         *     return values(*givenVersions).`as`(alias, IND, ENVIRONMENT_NAME, ARTIFACT_REFERENCE, ARTIFACT_VERSION)
+         *
+         * Unfortunately, you need the commercial version of jOOQ to emulate VALUES() on MySQL 5.7.
+         *
+         */
+        get() =
+          contexts
+          .mapIndexed { idx, v -> jooq.select(inline(idx), inline(v.environmentName), inline(v.artifactReference), inline(v.version)) as SelectOrderByStep<Record4<Int, String, String, String>> }
+          .reduce { s1, s2 -> s1.unionAll(s2) }
+          .asTable(alias, IND_, ENVIRONMENT_NAME_, ARTIFACT_REFERENCE_, ARTIFACT_VERSION_)
+    }
+
+    val index = givenVersions.IND
+
+    return jooq.select(
+      index,
+      VERIFICATION_STATE.VERIFICATION_ID,
+      VERIFICATION_STATE.STATUS,
+      VERIFICATION_STATE.STARTED_AT,
+      VERIFICATION_STATE.ENDED_AT,
+      VERIFICATION_STATE.METADATA)
+      .from(givenVersions.table)
+      .leftJoin(ENVIRONMENT)
+      .on(ENVIRONMENT.NAME.eq(givenVersions.ENVIRONMENT_NAME))
+      .leftJoin(DELIVERY_CONFIG)
+      .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .leftJoin(DELIVERY_ARTIFACT)
+      .on(DELIVERY_ARTIFACT.REFERENCE.eq(givenVersions.ARTIFACT_REFERENCE))
+      .leftJoin(VERIFICATION_STATE)
+      .on(VERIFICATION_STATE.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+      .and(VERIFICATION_STATE.ARTIFACT_VERSION.eq(givenVersions.ARTIFACT_VERSION))
+      .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(DELIVERY_CONFIG.NAME))
+      .and(VERIFICATION_STATE.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
+      .fetch()
+      .groupBy { (index /* , ... */ ) -> index as Long } // group records by index
+      .toSortedMap()  // sort them by index
+      .values // get values
+      .map { records ->
+          records
+            .filter {(_, _, status ) -> status != null } // skip entries where there is no status entry
+            .associate { (_, verification_id, status, started_at, ended_at, metadata) ->
+              verification_id to VerificationState(status, started_at, ended_at, metadata)
+            }
+      }
+      .toList()
+  }
 
   override fun updateState(
     context: VerificationContext,

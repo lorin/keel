@@ -5,12 +5,15 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DEFAULT_MAX_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
+import com.netflix.spinnaker.keel.api.verification.VerificationContext
+import com.netflix.spinnaker.keel.api.verification.VerificationState
 
 /**
  * A read-only repository for interacting with delivery configs, artifacts, and resources.
@@ -57,6 +60,8 @@ interface KeelReadOnlyRepository {
   fun isRegistered(name: String, type: ArtifactType): Boolean
 
   fun artifactVersions(artifact: DeliveryArtifact, limit: Int = DEFAULT_MAX_ARTIFACT_VERSIONS): List<PublishedArtifact>
+
+  fun getStatesBatch(contexts: List<VerificationContext>) : List<Map<String, VerificationState>>
 
   fun latestVersionApprovedIn(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, targetEnvironment: String): String?
 
