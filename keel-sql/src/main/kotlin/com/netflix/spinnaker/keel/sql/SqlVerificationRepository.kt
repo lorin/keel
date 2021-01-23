@@ -22,7 +22,6 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
 import org.jooq.DSLContext
 import org.jooq.Field
-import org.jooq.Name
 import org.jooq.Record1
 import org.jooq.Record4
 import org.jooq.Select
@@ -171,52 +170,33 @@ class SqlVerificationRepository(
     }
 
   /**
-   * Equivalent of:
+   * Query the repository for the states of multiple contexts.
    *
-   *     contexts.map { getStates(it) }
+   * This call is semantically equivalent to
+   *    val repo: VerificationRepository = ...
+   *    val contexts : List<VerificationContext> = ...
+   *    contexts.map { context -> this.getStates(context) }
    *
-   * Except that it does it in a single SQL query
+   * It exists as a separate call because it can be much more efficient to query the underlying repository as a batch.
    *
+   * @param contexts a list of verification contexts to query fo rstate
+   * @return a list of maps of verification ids to states, in the same order as the contexts
    */
   override fun getStatesBatch(contexts: List<VerificationContext>) : List<Map<String, VerificationState>> {
-    // A constant table based on the contexts argument. This lets us restrict our query to just
-    // the matching artifact versions given as an argument to the function
-    val givenVersions = object {
-      val alias = "given_versions"
-      private val IND_ = "ind"
-      private val ENVIRONMENT_NAME_ = "environment_name"
-      private val ARTIFACT_REFERENCE_ = "artifact_reference"
-      private val ARTIFACT_VERSION_ = "artifact_version"
-
-      fun <T> f(s : String, t: Class<T>) : Field<T> = field(name(alias, s), t)
-
-      val IND  = f(IND_, Long::class.java)
-      val ENVIRONMENT_NAME = f(ENVIRONMENT_NAME_, String::class.java)
-      val ARTIFACT_REFERENCE = f(ARTIFACT_REFERENCE_, String::class.java)
-      val ARTIFACT_VERSION = f(ARTIFACT_VERSION_, String::class.java)
-
-      val table : Table<Record4<Int, String, String, String>>
-        /**
-         *
-         * If [values] was supported, we could do this instead:
-         *
-         *     val givenVersions : Array<Row4<Int, String, String, String>> = contexts.mapIndexed { idx, v -> row(idx, v.environmentName, v.artifactReference, v.version) }.toTypedArray()
-         *     return values(*givenVersions).`as`(alias, IND, ENVIRONMENT_NAME, ARTIFACT_REFERENCE, ARTIFACT_VERSION)
-         *
-         * Unfortunately, you need the commercial version of jOOQ to emulate VALUES() on MySQL 5.7.
-         *
-         */
-        get() =
-          contexts
-          .mapIndexed { idx, v -> jooq.select(inline(idx), inline(v.environmentName), inline(v.artifactReference), inline(v.version)) as SelectOrderByStep<Record4<Int, String, String, String>> }
-          .reduce { s1, s2 -> s1.unionAll(s2) }
-          .asTable(alias, IND_, ENVIRONMENT_NAME_, ARTIFACT_REFERENCE_, ARTIFACT_VERSION_)
-    }
-
-    val index = givenVersions.IND
+    /**
+     * In-memory database table representation of a list of verification contexts, so we can join against it
+     * in the select statement
+     *
+     * Columns:
+     *   ind - index so we can track input order, because outputs have to be in same order as inputs
+     *   environment_name
+     *   artifact_reference
+     *   artifact_version
+     */
+    val givenVersions = ConstantTable(contexts, jooq)
 
     return jooq.select(
-      index,
+      givenVersions.IND,
       VERIFICATION_STATE.VERIFICATION_ID,
       VERIFICATION_STATE.STATUS,
       VERIFICATION_STATE.STARTED_AT,
@@ -247,6 +227,33 @@ class SqlVerificationRepository(
       }
       .toList()
   }
+
+  @Suppress("PropertyName")
+  class ConstantTable(
+    val contexts: List<VerificationContext>,
+    val jooq: DSLContext
+  ) {
+    val alias = "given_versions"
+    private val ind = "ind"
+    private val environmentName = "environment_name"
+    private val artifactReference = "artifact_reference"
+    private val artifactVersion = "artifact_version"
+
+    fun <T> f(s : String, t: Class<T>) : Field<T> = field(name(alias, s), t)
+
+    val IND  = f(ind, Long::class.java)
+    val ENVIRONMENT_NAME = f(environmentName, String::class.java)
+    val ARTIFACT_REFERENCE = f(artifactReference, String::class.java)
+    val ARTIFACT_VERSION = f(artifactVersion, String::class.java)
+
+    val table : Table<Record4<Int, String, String, String>>
+      get() =
+        contexts
+          .mapIndexed { idx, v -> jooq.select(inline(idx), inline(v.environmentName), inline(v.artifactReference), inline(v.version)) as SelectOrderByStep<Record4<Int, String, String, String>> }
+          .reduce { s1, s2 -> s1.unionAll(s2) }
+          .asTable(alias, ind, environmentName, artifactReference, artifactVersion)
+  }
+
 
   override fun updateState(
     context: VerificationContext,
