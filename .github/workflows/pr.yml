@@ -20,4 +20,4 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
     - name: Build
-      run: ./gradlew :keel-clouddriver:test --tests 'com.netflix.spinnaker.keel.clouddriver.MemoryCloudDriverCacheTest.certificates are looked up from CloudDriver when requested by ARN' --tests 'com.netflix.spinnaker.keel.clouddriver.MemoryCloudDriverCacheTest.all certs are cached at once when requested by name'
+      run: ./gradlew :keel-clouddriver:test --tests 'com.netflix.spinnaker.keel.clouddriver.MemoryCloudDriverCacheTest.all certs are cached at once when requested by name'
