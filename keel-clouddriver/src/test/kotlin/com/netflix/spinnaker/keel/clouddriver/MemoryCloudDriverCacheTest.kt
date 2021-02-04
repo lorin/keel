@@ -249,10 +249,20 @@ internal class MemoryCloudDriverCacheTest {
 
   @Test
   fun `all certs are cached at once when requested by name`() {
-    every { cloudDriver.getCertificates() } returns certificates
+
+    var count = 0
+
+    every {
+      cloudDriver.getCertificates()
+    } answers {
+      count += 1
+      certificates
+    }
 
     listOf("cert-1", "cert-2")
       .forEach(subject::certificateByName)
+
+    expectThat(count).isEqualTo(1)
 
     verify(exactly = 1) { cloudDriver.getCertificates() }
   }
