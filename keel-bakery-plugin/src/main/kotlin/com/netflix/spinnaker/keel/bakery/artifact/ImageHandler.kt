@@ -26,6 +26,7 @@ import com.netflix.spinnaker.keel.persistence.NoSuchArtifactException
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckSkipped
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.core.env.Environment
 
 class ImageHandler(
   private val repository: KeelRepository,
@@ -35,8 +36,12 @@ class ImageHandler(
   private val diffFingerprintRepository: DiffFingerprintRepository,
   private val publisher: ApplicationEventPublisher,
   private val taskLauncher: TaskLauncher,
+  private val springEnv: Environment,
   private val defaultCredentials: BakeCredentials
 ) : ArtifactHandler {
+
+  val rootVolumeSize: Long
+    get() = springEnv.getProperty("keel.bakery.image.volume.size.root", Long::class.java, 10)
 
   override suspend fun handle(artifact: DeliveryArtifact) {
     if (artifact is DebianArtifact) {
@@ -169,6 +174,7 @@ class ImageHandler(
               "cloudProviderType" to "aws",
               "package" to artifactRef.substringAfterLast("/"),
               "regions" to artifact.vmOptions.regions,
+              "rootVolumeSize" to rootVolumeSize,
               "storeType" to artifact.vmOptions.storeType.name.toLowerCase(),
               "vmType" to "hvm"
             )
