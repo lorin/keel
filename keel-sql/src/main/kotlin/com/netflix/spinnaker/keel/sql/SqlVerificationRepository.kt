@@ -102,6 +102,7 @@ class SqlVerificationRepository(
           // order by last time checked with things never checked coming first
           .orderBy(isnull(ENVIRONMENT_LAST_VERIFIED.AT, EPOCH))
           .limit(limit)
+          .forShare()
           .fetch()
           .onEach { (_, _, environmentUid, _, artifactUid, _, artifactVersion) ->
             insertInto(ENVIRONMENT_LAST_VERIFIED)
