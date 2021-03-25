@@ -77,7 +77,7 @@ class IntermittentFailureTests : JUnit5Minutests {
       every { getContextsWithStatus(any(), any(), any()) }  returns emptyList()
     }
 
-    val environmentExclusionEnforcer = EnvironmentExclusionEnforcer(springEnv, verificationRepository, NoopRegistry(), clock)
+    val environmentExclusionEnforcer = EnvironmentExclusionEnforcer(springEnv, verificationRepository, artifactRepository, NoopRegistry(), clock)
 
     val dynamicConfigService: DynamicConfigService = mockk(relaxUnitFun = true) {
       every {

@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.verification.VerificationContext
 import com.netflix.spinnaker.keel.api.verification.VerificationRepository
+import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
@@ -23,6 +24,9 @@ open class EnvironmentCurrentlyBeingActedOn(message: String) : Exception(message
 
 class ActiveVerifications(val active: Collection<VerificationContext>, deliveryConfig: DeliveryConfig, environment: Environment) :
   EnvironmentCurrentlyBeingActedOn("active verifications in ${deliveryConfig.name} ${environment.name} against versions ${active.map {it.version}}")
+
+class ActiveDeployments(deliveryConfig: DeliveryConfig, environment: Environment ) :
+  EnvironmentCurrentlyBeingActedOn("currently deploying into ${deliveryConfig.name} ${environment.name}")
 
 /**
  * This class enforces two safety properties of the verification behavior:
@@ -48,7 +52,8 @@ class ActiveVerifications(val active: Collection<VerificationContext>, deliveryC
 @Component
 class EnvironmentExclusionEnforcer(
   private val springEnv: SpringEnvironment,
-  private val repository: VerificationRepository,
+  private val verificationRepository: VerificationRepository,
+  private val artifactRepository: ArtifactRepository,
   spectator: Registry,
   private val clock: Clock
   ) {
@@ -109,12 +114,12 @@ class EnvironmentExclusionEnforcer(
   }
 
   /**
-   * @throws EnvironmentCurrentlyBeingActedOn if there's an active deployment
+   * @throws ActiveDeployments  if there's an active deployment
    */
   private fun ensureNoActiveDeployments(deliveryConfig: DeliveryConfig, environment: Environment) {
-    /**
-     * To be implemented in a future PR.
-     */
+    if(artifactRepository.isDeployingTo(deliveryConfig, environment.name)) {
+      throw ActiveDeployments(deliveryConfig, environment)
+    }
   }
 
   /**
@@ -124,7 +129,7 @@ class EnvironmentExclusionEnforcer(
    * @throws ActiveVerifications if there's an active verification
    */
   private fun ensureNoActiveVerifications(deliveryConfig: DeliveryConfig, environment: Environment)  {
-    val activeVerifications = repository.getContextsWithStatus(deliveryConfig, environment, PENDING)
+    val activeVerifications = verificationRepository.getContextsWithStatus(deliveryConfig, environment, PENDING)
     if(activeVerifications.isNotEmpty()) {
       throw ActiveVerifications(activeVerifications, deliveryConfig, environment)
     }
